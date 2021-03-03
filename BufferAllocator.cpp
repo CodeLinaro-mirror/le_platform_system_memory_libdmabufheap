@@ -23,15 +23,16 @@
 #include <ion/ion.h>
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
-#include <linux/ion_4.12.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/ioctl.h>
+#include <dirent.h>
 
 #include <string>
 #include <unordered_set>
 
-#include <android-base/logging.h>
+#include <base/logging.h>
 
 static constexpr char kDmaHeapRoot[] = "/dev/dma_heap/";
 static constexpr char kIonDevice[] = "/dev/ion";
@@ -83,8 +84,8 @@ void BufferAllocator::QueryIonHeaps() {
     uses_legacy_ion_iface_ = ion_is_legacy(ion_fd_);
     if (uses_legacy_ion_iface_) {
         LogInterface("Legacy ion heaps");
-        MapNameToIonMask(kDmabufSystemHeapName, ION_HEAP_SYSTEM_MASK, ION_FLAG_CACHED);
-        MapNameToIonMask(kDmabufSystemUncachedHeapName, ION_HEAP_SYSTEM_MASK);
+        MapNameToIonMask(kDmabufSystemHeapName, ION_HEAP_SYSTEM, ION_FLAG_CACHED);
+        MapNameToIonMask(kDmabufSystemUncachedHeapName, ION_HEAP_SYSTEM);
         return;
     }
 

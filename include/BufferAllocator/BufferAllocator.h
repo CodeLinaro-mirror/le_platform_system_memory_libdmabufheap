@@ -18,8 +18,6 @@
 
 #include <BufferAllocator/dmabufheap-defs.h>
 
-#include <android-base/unique_fd.h>
-#include <linux/ion_4.12.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,6 +28,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <functional>
 
 
 class BufferAllocator {
