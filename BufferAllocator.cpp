@@ -32,11 +32,23 @@
 #include <unordered_set>
 
 #include <android-base/logging.h>
-#include <android-base/unique_fd.h>
 
 static constexpr char kDmaHeapRoot[] = "/dev/dma_heap/";
 static constexpr char kIonDevice[] = "/dev/ion";
 static constexpr char kIonSystemHeapName[] = "ion_system_heap";
+
+BufferAllocator::~BufferAllocator() {
+    auto it = dmabuf_heap_fds_.begin();
+    while (it != dmabuf_heap_fds_.end()) {
+        auto prev = it++;
+        int fd = prev->second;
+        close(fd);
+        dmabuf_heap_fds_.erase(prev);
+    }
+
+    if (ion_fd_ > 0)
+        close(ion_fd_);
+}
 
 void BufferAllocator::LogInterface(const std::string& interface) {
     if (!logged_interface_) {
@@ -62,7 +74,7 @@ int BufferAllocator::OpenDmabufHeap(const std::string& heap_name) {
         if (fd < 0)
             return -errno;
         LOG(INFO) << "Using DMA-BUF heap named: " << heap_name;
-        dmabuf_heap_fds_.insert({heap_name, android::base::unique_fd(fd)});
+        dmabuf_heap_fds_.insert({heap_name, fd});
     }
     return fd;
 }
@@ -97,7 +109,7 @@ void BufferAllocator::QueryIonHeaps() {
 }
 
 BufferAllocator::BufferAllocator() {
-    ion_fd_.reset(TEMP_FAILURE_RETRY(open(kIonDevice, O_RDONLY| O_CLOEXEC)));
+    ion_fd_ = TEMP_FAILURE_RETRY(open(kIonDevice, O_RDONLY| O_CLOEXEC));
     if (ion_fd_ >= 0)
         QueryIonHeaps();
 }
@@ -236,7 +248,7 @@ int BufferAllocator::LegacyIonCpuSync(unsigned int dmabuf_fd,
         return ion_sync_fd(ion_fd_, dmabuf_fd);
 
     // dup ion_fd_ so that we retain its ownership.
-    int new_ion_fd = TEMP_FAILURE_RETRY(dup(ion_fd_.get()));
+    int new_ion_fd = TEMP_FAILURE_RETRY(dup(ion_fd_));
     if (new_ion_fd < 0) {
         PLOG(ERROR) << "Unable to dup ion fd. error: " << new_ion_fd;
         return new_ion_fd;

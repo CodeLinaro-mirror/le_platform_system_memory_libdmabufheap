@@ -35,7 +35,7 @@
 class BufferAllocator {
   public:
     BufferAllocator();
-    ~BufferAllocator() {}
+    ~BufferAllocator();
 
     /* Not copyable or movable */
     BufferAllocator(const BufferAllocator&) = delete;
@@ -172,10 +172,10 @@ class BufferAllocator {
                void *custom_data);
 
     /* Stores all open dmabuf_heap handles. */
-    std::unordered_map<std::string, android::base::unique_fd> dmabuf_heap_fds_;
+    std::unordered_map<std::string, int> dmabuf_heap_fds_;
 
     /* saved handle to /dev/ion. */
-    android::base::unique_fd ion_fd_;
+    int ion_fd_;
     /**
      * Stores the queried ion heap data. Struct ion_heap_date is defined
      * as part of the ION UAPI as follows.
