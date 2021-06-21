@@ -76,7 +76,24 @@ void libdmabufheaptest(bool use_custom_callback, void *legacy_ion_custom_data) {
         return;
     }
 
-    fd = DmabufHeapAlloc(bufferAllocator, kDmabufSystemHeapName, len, 0);
+    /*
+     * Test the DmabufHeapAllocSystem() APIs.
+     */
+    fd = DmabufHeapAllocSystem(bufferAllocator, true /* cpu_access */, len, 0, 0);
+    if (fd < 0) {
+        printf("DmabufHeapAllocSystem() failed: %d cpu_access: true\n", fd);
+        return;
+    }
+    close(fd);
+
+    fd = DmabufHeapAllocSystem(bufferAllocator, false /* cpu_access */, len, 0, 0);
+    if (fd < 0) {
+        printf("DmabufHeapAllocSystem() failed: %d cpu_access: false\n", fd);
+        return;
+    }
+    close(fd);
+
+    fd = DmabufHeapAlloc(bufferAllocator, kDmabufSystemHeapName, len, 0, 0);
     if (fd < 0) {
         printf("Alloc failed: %d\n", fd);
         return;
@@ -108,7 +125,7 @@ void libdmabufheaptest(bool use_custom_callback, void *legacy_ion_custom_data) {
         }
     }
 
-    ret = DmabufHeapCpuSyncEnd(bufferAllocator, fd,
+    ret = DmabufHeapCpuSyncEnd(bufferAllocator, fd, kSyncReadWrite,
                                use_custom_callback ? legacy_ion_custom_callback : NULL,
                                legacy_ion_custom_data);
     if (ret) {
@@ -126,6 +143,12 @@ void libdmabufheaptest(bool use_custom_callback, void *legacy_ion_custom_data) {
 int main(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
+
+    if (CheckIonSupport())
+        printf("ION support detected\n");
+    else
+        printf("No ION support detected\n");
+
     custom_callback_data data = {.a = 1, .b = 2};
     printf("*****running with custom legacy ion cpu sync callback, with custom data****\n");
     libdmabufheaptest(true, &data);
