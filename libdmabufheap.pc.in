@@ -7,4 +7,4 @@ Name: libdmabufheap
 Description: libdmabufheap library
 Version: @VERSION@
 Libs: -L${libdir} -ldmabufheap
-Cflags: -I${includedir} -I${includedir}/BufferAllocator -std=c++17
+Cflags: -I${includedir} -I${includedir}/BufferAllocator
