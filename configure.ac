@@ -18,13 +18,17 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
-PKG_CHECK_MODULES([LIBBASE], [libbase])
-AC_SUBST([LIBBASE_CFLAGS])
-AC_SUBST([LIBBASE_LIBS])
+AC_ARG_WITH([ion],
+      AC_HELP_STRING([--with-ion],
+        [enable libion usage, building HLOS systems which use libion]))
 
-PKG_CHECK_MODULES([LIBION], [libion])
-AC_SUBST([LIBION_CFLAGS])
-AC_SUBST([LIBION_LIBS])
+if (test "x${with_ion}" = "xyes"); then
+    PKG_CHECK_MODULES(LIBION, libion, dummy=yes,
+          AC_MSG_ERROR(libion is required))
+    AC_SUBST(LIBION_CFLAGS)
+    AC_SUBST(LIBION_LIBS)
+fi
+AM_CONDITIONAL([USE_ION],  [test "x${with_ion}" = "xyes"])
 
 AC_ARG_WITH(sanitized-headers,
         AS_HELP_STRING([--with-sanitized-headers=DIR],

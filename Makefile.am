@@ -17,8 +17,11 @@ libdmabufheap_la_CPPFLAGS := -I$(top_srcdir)/include
 libdmabufheap_la_CPPFLAGS += $(AM_CPPFLAGS) -Wno-error=pointer-to-int-cast
 libdmabufheap_la_CPPFLAGS += -std=c++17
 
-libdmabufheap_la_CPPFLAGS += @LIBBASE_CFLAGS@ @LIBION_CFLAGS@
-libdmabufheap_la_LDFLAGS := @LIBBASE_LIBS@ @LIBION_LIBS@
+if USE_ION
+libdmabufheap_la_CPPFLAGS +=  -DUSE_ION
+endif
+libdmabufheap_la_CPPFLAGS +=  @LIBION_CFLAGS@
+libdmabufheap_la_LDFLAGS :=  @LIBION_LIBS@
 
 # Export headers
 dmabufheap_includedir=$(includedir)/BufferAllocator
