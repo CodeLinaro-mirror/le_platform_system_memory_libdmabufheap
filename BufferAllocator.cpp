@@ -47,7 +47,9 @@ static constexpr char kIonDevice[] = "/dev/ion";
 static constexpr char kIonSystemHeapName[] = "ion_system_heap";
 
 #ifndef USE_ION
-BufferAllocator::BufferAllocator() {
+BufferAllocator::BufferAllocator()
+    : ion_fd_(-1)
+{
 }
 
 int BufferAllocator::MapNameToIonHeap(const std::string& /* heap_name */,
