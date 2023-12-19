@@ -14,10 +14,7 @@
  * limitations under the License.
  */
 
-#define LOG_TAG "DMABUFHEAPS "
-#define PRI_INFO " I "
-#define PRI_ERROR " E "
-#define LOG(pr, fmt, arg...) syslog (LOG_NOTICE, pr LOG_TAG fmt, ##arg)
+#define LOG_TAG "DMABUFHEAPS"
 
 #include <BufferAllocator/BufferAllocator.h>
 
@@ -33,12 +30,11 @@
 #include <dirent.h>
 
 #include <mutex>
-#include <memory>
 #include <shared_mutex>
 #include <string>
 #include <unordered_set>
 
-#include <syslog.h>
+#include <base/logging.h>
 
 static constexpr char kDmaHeapRoot[] = "/dev/dma_heap/";
 static constexpr char kIonDevice[] = "/dev/ion";
@@ -69,7 +65,7 @@ BufferAllocator::~BufferAllocator() {
 
 void BufferAllocator::LogInterface(const std::string& interface) {
     if (!logged_interface_) {
-        LOG(PRI_INFO, "Using : %s", interface);
+        LOG(INFO) << "Using : " << interface;
         logged_interface_ = true;
     }
 }
@@ -101,13 +97,10 @@ int BufferAllocator::OpenDmabufHeap(const std::string& heap_name) {
     int fd = TEMP_FAILURE_RETRY(open(heap_path.c_str(), O_RDONLY | O_CLOEXEC));
     if (fd < 0) return -errno;
 
-    LOG(PRI_INFO, "Using DMA-BUF heap named: %s", heap_name);
+    LOG(INFO) << "Using DMA-BUF heap named: " << heap_name;
 
     auto ret = dmabuf_heap_fds_.insert({heap_name, fd});
-    if (!ret.second) {
-        LOG(PRI_ERROR, "Check failed: %d", ret.second);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-    }
+    CHECK(ret.second);
     return fd;
 }
 
@@ -128,11 +121,10 @@ void BufferAllocator::QueryIonHeaps() {
     }
 
     // Abort if heap query fails
-    if(ret != 0) {
-       LOG(PRI_ERROR, "Non-legacy ION implementation must support heap information queries");
-       LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-    }
+    CHECK(ret == 0)
+            << "Non-legacy ION implementation must support heap information queries";
     LogInterface("Non-legacy ION heaps");
+
     /*
      * No error checking here, it is possible that devices may have used another name for
      * the ion system heap.
@@ -166,8 +158,7 @@ int BufferAllocator::GetIonHeapIdByName(const std::string& heap_name, unsigned i
         }
     }
 
-    LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name);
-    LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+    LOG(ERROR) << "No ion heap of name " << heap_name << " exists";
     return -EINVAL;
 }
 
@@ -237,11 +228,8 @@ int BufferAllocator::GetIonConfig(const std::string& heap_name, IonHeapConfig& h
         }
     }
 
-    if (ret) {
-        LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-    }
-
+    if (ret)
+        LOG(ERROR) << "No ion heap of name " << heap_name << " exists";
     return ret;
 }
 
@@ -256,8 +244,7 @@ int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
 
     auto ret = TEMP_FAILURE_RETRY(ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &heap_data));
     if (ret < 0) {
-        LOG(PRI_ERROR, "Unable to allocate from DMA-BUF heap: %s", heap_name);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+        PLOG(ERROR) << "Unable to allocate from DMA-BUF heap: " << heap_name;
         return ret;
     }
 
@@ -275,9 +262,8 @@ int BufferAllocator::IonAlloc(const std::string& heap_name, size_t len,
     unsigned int flags = heap_config.flags | heap_flags;
     ret = ion_alloc_fd(ion_fd_, len, legacy_align, heap_config.mask, flags, &alloc_fd);
     if (ret) {
-        LOG(PRI_ERROR, "allocation fails for ion heap with mask: %d and flags: %d",
-			heap_config.mask, flags);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+        PLOG(ERROR) << "allocation fails for ion heap with mask: " << heap_config.mask
+                    << " and flags: " << flags;
         return ret;
     }
     return alloc_fd;
@@ -334,8 +320,7 @@ int BufferAllocator::LegacyIonCpuSync(unsigned int dmabuf_fd,
     // dup ion_fd_ so that we retain its ownership.
     int new_ion_fd = TEMP_FAILURE_RETRY(dup(ion_fd_));
     if (new_ion_fd < 0) {
-        LOG(PRI_ERROR, "Unable to dup ion fd. error: %d", new_ion_fd);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+        PLOG(ERROR) << "Unable to dup ion fd. error: " << new_ion_fd;
         return new_ion_fd;
     }
 
@@ -366,11 +351,7 @@ int BufferAllocator::CpuSyncStart(unsigned int dmabuf_fd, SyncType sync_type,
     int ret = DoSync(dmabuf_fd, true /* start */, sync_type, legacy_ion_cpu_sync_custom,
                      legacy_ion_custom_data);
 
-    if (ret) {
-	LOG(PRI_ERROR, "CpuSyncStart() failure");
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-    }
-
+    if (ret) PLOG(ERROR) << "CpuSyncStart() failure";
     return ret;
 }
 
@@ -379,10 +360,7 @@ int BufferAllocator::CpuSyncEnd(unsigned int dmabuf_fd, SyncType sync_type,
                                 void* legacy_ion_custom_data) {
     int ret = DoSync(dmabuf_fd, false /* start */, sync_type, legacy_ion_cpu_sync_custom,
                      legacy_ion_custom_data);
-    if (ret) {
-	LOG(PRI_ERROR, "CpuSyncEnd() failure");
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-    }
+    if (ret) PLOG(ERROR) << "CpuSyncEnd() failure";
 
     return ret;
 }
