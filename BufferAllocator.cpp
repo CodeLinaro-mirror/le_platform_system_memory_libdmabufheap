@@ -23,9 +23,7 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#ifdef USE_ION
 #include <ion/ion.h>
-#endif
 #include <linux/dma-buf.h>
 #include <linux/dma-heap.h>
 #include <stdlib.h>
@@ -54,19 +52,6 @@ do {                                   \
     _rc = (exp);                       \
 } while (_rc == -1 && errno == EINTR); \
 _rc; })
-#endif
-
-#ifndef USE_ION
-BufferAllocator::BufferAllocator() {
-}
-
-int BufferAllocator::MapNameToIonHeap(const std::string& heap_name,
-                                      const std::string& ion_heap_name,
-                                      unsigned int ion_heap_flags,
-                                      unsigned int legacy_ion_heap_mask,
-                                      unsigned int legacy_ion_heap_flags) {
-	return 0;
-}
 #endif
 
 BufferAllocator::~BufferAllocator() {
@@ -126,7 +111,6 @@ int BufferAllocator::OpenDmabufHeap(const std::string& heap_name) {
     return fd;
 }
 
-#ifdef USE_ION
 void BufferAllocator::QueryIonHeaps() {
     uses_legacy_ion_iface_ = ion_is_legacy(ion_fd_);
     if (uses_legacy_ion_iface_) {
@@ -261,6 +245,25 @@ int BufferAllocator::GetIonConfig(const std::string& heap_name, IonHeapConfig& h
     return ret;
 }
 
+int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
+    int fd = OpenDmabufHeap(heap_name);
+    if (fd < 0) return fd;
+
+    struct dma_heap_allocation_data heap_data{
+        .len = len,  // length of data to be allocated in bytes
+        .fd_flags = O_RDWR | O_CLOEXEC,  // permissions for the memory to be allocated
+    };
+
+    auto ret = TEMP_FAILURE_RETRY(ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &heap_data));
+    if (ret < 0) {
+        LOG(PRI_ERROR, "Unable to allocate from DMA-BUF heap: %s", heap_name);
+        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+        return ret;
+    }
+
+    return heap_data.fd;
+}
+
 int BufferAllocator::IonAlloc(const std::string& heap_name, size_t len,
                               unsigned int heap_flags, size_t legacy_align) {
     IonHeapConfig heap_config;
@@ -272,12 +275,54 @@ int BufferAllocator::IonAlloc(const std::string& heap_name, size_t len,
     unsigned int flags = heap_config.flags | heap_flags;
     ret = ion_alloc_fd(ion_fd_, len, legacy_align, heap_config.mask, flags, &alloc_fd);
     if (ret) {
-	LOG(PRI_ERROR, "allocation fails for ion heap with mask: %d and flags: %d",
+        LOG(PRI_ERROR, "allocation fails for ion heap with mask: %d and flags: %d",
 			heap_config.mask, flags);
-	LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-	return ret;
+        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
+        return ret;
     }
     return alloc_fd;
+}
+
+int BufferAllocator::Alloc(const std::string& heap_name, size_t len,
+                           unsigned int heap_flags, size_t legacy_align) {
+    int fd = DmabufAlloc(heap_name, len);
+
+    if (fd < 0)
+        fd = IonAlloc(heap_name, len, heap_flags, legacy_align);
+
+    return fd;
+}
+
+int BufferAllocator::AllocSystem(bool cpu_access_needed, size_t len, unsigned int heap_flags,
+                                 size_t legacy_align) {
+    if (!cpu_access_needed) {
+        /*
+         * CPU does not need to access allocated buffer so we try to allocate in
+         * the 'system-uncached' heap after querying for its existence.
+         */
+        static bool uncached_dmabuf_system_heap_support = [this]() -> bool {
+            auto dmabuf_heap_list = this->GetDmabufHeapList();
+            return (dmabuf_heap_list.find(kDmabufSystemUncachedHeapName) != dmabuf_heap_list.end());
+        }();
+
+        if (uncached_dmabuf_system_heap_support)
+            return DmabufAlloc(kDmabufSystemUncachedHeapName, len);
+
+        static bool uncached_ion_system_heap_support = [this]() -> bool {
+            IonHeapConfig heap_config;
+            auto ret = this->GetIonConfig(kDmabufSystemUncachedHeapName, heap_config);
+            return (ret == 0);
+        }();
+
+        if (uncached_ion_system_heap_support)
+            return IonAlloc(kDmabufSystemUncachedHeapName, len, heap_flags, legacy_align);
+    }
+
+    /*
+     * Either 1) CPU needs to access allocated buffer OR 2) CPU does not need to
+     * access allocated buffer but the "system-uncached" heap is unsupported.
+     */
+    return Alloc(kDmabufSystemHeapName, len, heap_flags, legacy_align);
 }
 
 int BufferAllocator::LegacyIonCpuSync(unsigned int dmabuf_fd,
@@ -300,81 +345,13 @@ int BufferAllocator::LegacyIonCpuSync(unsigned int dmabuf_fd,
     return ret;
 }
 
-#endif
-
-int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
-    int fd = OpenDmabufHeap(heap_name);
-    if (fd < 0) return fd;
-
-    struct dma_heap_allocation_data heap_data{
-        .len = len,  // length of data to be allocated in bytes
-        .fd_flags = O_RDWR | O_CLOEXEC,  // permissions for the memory to be allocated
-    };
-
-    auto ret = TEMP_FAILURE_RETRY(ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &heap_data));
-    if (ret < 0) {
-        LOG(PRI_ERROR, "Unable to allocate from DMA-BUF heap: %s", heap_name);
-        LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
-        return ret;
-    }
-
-    return heap_data.fd;
-}
-
-int BufferAllocator::Alloc(const std::string& heap_name, size_t len,
-                           unsigned int heap_flags, size_t legacy_align) {
-    int fd = DmabufAlloc(heap_name, len);
-
-#ifdef USE_ION
-    if (fd < 0)
-        fd = IonAlloc(heap_name, len, heap_flags, legacy_align);
-#endif
-    return fd;
-}
-
-int BufferAllocator::AllocSystem(bool cpu_access_needed, size_t len, unsigned int heap_flags,
-                                 size_t legacy_align) {
-    if (!cpu_access_needed) {
-        /*
-         * CPU does not need to access allocated buffer so we try to allocate in
-         * the 'system-uncached' heap after querying for its existence.
-         */
-        static bool uncached_dmabuf_system_heap_support = [this]() -> bool {
-            auto dmabuf_heap_list = this->GetDmabufHeapList();
-            return (dmabuf_heap_list.find(kDmabufSystemUncachedHeapName) != dmabuf_heap_list.end());
-        }();
-
-        if (uncached_dmabuf_system_heap_support)
-            return DmabufAlloc(kDmabufSystemUncachedHeapName, len);
-
-#ifdef USE_ION
-        static bool uncached_ion_system_heap_support = [this]() -> bool {
-            IonHeapConfig heap_config;
-            auto ret = this->GetIonConfig(kDmabufSystemUncachedHeapName, heap_config);
-            return (ret == 0);
-        }();
-
-        if (uncached_ion_system_heap_support)
-            return IonAlloc(kDmabufSystemUncachedHeapName, len, heap_flags, legacy_align);
-#endif
-    }
-
-    /*
-     * Either 1) CPU needs to access allocated buffer OR 2) CPU does not need to
-     * access allocated buffer but the "system-uncached" heap is unsupported.
-     */
-    return Alloc(kDmabufSystemHeapName, len, heap_flags, legacy_align);
-}
-
 int BufferAllocator::DoSync(unsigned int dmabuf_fd, bool start, SyncType sync_type,
                             const CustomCpuSyncLegacyIon& legacy_ion_cpu_sync_custom,
                             void *legacy_ion_custom_data) {
-#ifdef USE_ION
     if (uses_legacy_ion_iface_) {
         return LegacyIonCpuSync(dmabuf_fd, legacy_ion_cpu_sync_custom,
                                 legacy_ion_custom_data);
     }
-#endif
 
     struct dma_buf_sync sync = {
         .flags = (start ? DMA_BUF_SYNC_START : DMA_BUF_SYNC_END) |
