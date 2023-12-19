@@ -60,11 +60,11 @@ _rc; })
 BufferAllocator::BufferAllocator() {
 }
 
-int BufferAllocator::MapNameToIonHeap(const std::string& /* heap_name */,
-                                      const std::string& /* ion_heap_name */,
-                                      unsigned int /* ion_heap_flags */,
-                                      unsigned int /* legacy_ion_heap_mask */,
-                                      unsigned int /* legacy_ion_heap_flags */) {
+int BufferAllocator::MapNameToIonHeap(const std::string& heap_name,
+                                      const std::string& ion_heap_name,
+                                      unsigned int ion_heap_flags,
+                                      unsigned int legacy_ion_heap_mask,
+                                      unsigned int legacy_ion_heap_flags) {
 	return 0;
 }
 #endif
@@ -84,7 +84,7 @@ BufferAllocator::~BufferAllocator() {
 
 void BufferAllocator::LogInterface(const std::string& interface) {
     if (!logged_interface_) {
-        LOG(PRI_INFO, "Using : %s", interface.c_str());
+        LOG(PRI_INFO, "Using : %s", interface);
         logged_interface_ = true;
     }
 }
@@ -116,7 +116,7 @@ int BufferAllocator::OpenDmabufHeap(const std::string& heap_name) {
     int fd = TEMP_FAILURE_RETRY(open(heap_path.c_str(), O_RDONLY | O_CLOEXEC));
     if (fd < 0) return -errno;
 
-    LOG(PRI_INFO, "Using DMA-BUF heap named: %s", heap_name.c_str());
+    LOG(PRI_INFO, "Using DMA-BUF heap named: %s", heap_name);
 
     auto ret = dmabuf_heap_fds_.insert({heap_name, fd});
     if (!ret.second) {
@@ -182,7 +182,7 @@ int BufferAllocator::GetIonHeapIdByName(const std::string& heap_name, unsigned i
         }
     }
 
-    LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name.c_str());
+    LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name);
     LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
     return -EINVAL;
 }
@@ -254,7 +254,7 @@ int BufferAllocator::GetIonConfig(const std::string& heap_name, IonHeapConfig& h
     }
 
     if (ret) {
-        LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name.c_str());
+        LOG(PRI_ERROR, "No ion heap of name %s exists", heap_name);
         LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
     }
 
@@ -313,7 +313,7 @@ int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
 
     auto ret = TEMP_FAILURE_RETRY(ioctl(fd, DMA_HEAP_IOCTL_ALLOC, &heap_data));
     if (ret < 0) {
-        LOG(PRI_ERROR, "Unable to allocate from DMA-BUF heap: %s", heap_name.c_str());
+        LOG(PRI_ERROR, "Unable to allocate from DMA-BUF heap: %s", heap_name);
         LOG(PRI_ERROR, "File: %s Line: %d Function: %s, return value = %d", __FILE__, __LINE__, __func__, -errno);
         return ret;
     }
@@ -322,8 +322,7 @@ int BufferAllocator::DmabufAlloc(const std::string& heap_name, size_t len) {
 }
 
 int BufferAllocator::Alloc(const std::string& heap_name, size_t len,
-                           [[maybe_unused]] unsigned int heap_flags,
-			   [[maybe_unused]] size_t legacy_align) {
+                           unsigned int heap_flags, size_t legacy_align) {
     int fd = DmabufAlloc(heap_name, len);
 
 #ifdef USE_ION
@@ -333,9 +332,8 @@ int BufferAllocator::Alloc(const std::string& heap_name, size_t len,
     return fd;
 }
 
-int BufferAllocator::AllocSystem(bool cpu_access_needed, size_t len,
-		                [[maybe_unused]] unsigned int heap_flags,
-                                [[maybe_unused]] size_t legacy_align) {
+int BufferAllocator::AllocSystem(bool cpu_access_needed, size_t len, unsigned int heap_flags,
+                                 size_t legacy_align) {
     if (!cpu_access_needed) {
         /*
          * CPU does not need to access allocated buffer so we try to allocate in
@@ -369,8 +367,8 @@ int BufferAllocator::AllocSystem(bool cpu_access_needed, size_t len,
 }
 
 int BufferAllocator::DoSync(unsigned int dmabuf_fd, bool start, SyncType sync_type,
-                            [[maybe_unused]] const CustomCpuSyncLegacyIon& legacy_ion_cpu_sync_custom,
-                            [[maybe_unused]] void *legacy_ion_custom_data) {
+                            const CustomCpuSyncLegacyIon& legacy_ion_cpu_sync_custom,
+                            void *legacy_ion_custom_data) {
 #ifdef USE_ION
     if (uses_legacy_ion_iface_) {
         return LegacyIonCpuSync(dmabuf_fd, legacy_ion_cpu_sync_custom,
