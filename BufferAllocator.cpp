@@ -57,9 +57,7 @@ _rc; })
 #endif
 
 #ifndef USE_ION
-BufferAllocator::BufferAllocator()
-    : ion_fd_(-1)
-{
+BufferAllocator::BufferAllocator() {
 }
 
 int BufferAllocator::MapNameToIonHeap(const std::string& /* heap_name */,
