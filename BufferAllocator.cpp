@@ -46,8 +46,20 @@ static constexpr char kDmaHeapRoot[] = "/dev/dma_heap/";
 static constexpr char kIonDevice[] = "/dev/ion";
 static constexpr char kIonSystemHeapName[] = "ion_system_heap";
 
+#ifndef TEMP_FAILURE_RETRY
+/* Used to retry syscalls that can return EINTR. */
+#define TEMP_FAILURE_RETRY(exp) ({     \
+__typeof(exp) _rc;                      \
+do {                                   \
+    _rc = (exp);                       \
+} while (_rc == -1 && errno == EINTR); \
+_rc; })
+#endif
+
 #ifndef USE_ION
-BufferAllocator::BufferAllocator() {
+BufferAllocator::BufferAllocator()
+    : ion_fd_(-1)
+{
 }
 
 int BufferAllocator::MapNameToIonHeap(const std::string& /* heap_name */,
