@@ -204,7 +204,6 @@ class BufferAllocator {
 
     /* saved handle to /dev/ion. */
     int ion_fd_;
-#ifdef USE_ION
     /**
      * Stores the queried ion heap data. Struct ion_heap_date is defined
      * as part of the ION UAPI as follows.
@@ -217,9 +216,8 @@ class BufferAllocator {
      *    __u32 reserved2;
      * };
      */
-    std::vector<struct ion_heap_data> ion_heap_info_;
-#endif
     bool uses_legacy_ion_iface_ = false;
+    std::vector<struct ion_heap_data> ion_heap_info_;
     inline static bool logged_interface_ = false;
     /* stores a map of dmabuf heap names to equivalent ion heap configurations. */
     std::unordered_map<std::string, struct IonHeapConfig> heap_name_to_config_;
