@@ -1,0 +1,26 @@
+Source: qcom-libdmabufheap
+Section: libs
+Priority: optional
+Maintainer: Vijayanand Jitta <quic_vjitta@quicinc.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13), pkgconf
+Standards-Version: 4.6.2
+Homepage: https://git.codelinaro.org/clo/le/platform/system/memory/libdmabufheap
+
+Package: qcom-libdmabufheap-dev
+Section: libdevel
+Architecture: arm64 amd64
+Depends:
+ qcom-libdmabufheap (= ${binary:Version}),
+ ${misc:Depends},
+Description: Library to interface dmabufheap node - development files
+ Development files for libdmabufheap
+
+Package: qcom-libdmabufheap
+Architecture: any
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+Description: Library to interface dmabufheap node
+ Library to access kernel dmabufheap node. Orginated from Android
