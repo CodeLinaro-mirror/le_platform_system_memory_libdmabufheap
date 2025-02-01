@@ -1,0 +1,7 @@
+libdmabufheap for Debian
+------------------------
+
+Build from https://git.codelinaro.org/clo/le/platform/system/memory/libdmabufheap.git
+branch memory-le-apps.lnx.3.0.
+
+ -- Vijayanand Jitta <quic_vjitta@quicinc.com>  Fri, 17 Jan 2025 10:27:41 +0000
