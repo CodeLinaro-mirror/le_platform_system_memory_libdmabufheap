@@ -11,6 +11,8 @@ Homepage: https://git.codelinaro.org/clo/le/platform/system/memory/libdmabufheap
 Package: qcom-libdmabufheap-dev
 Section: libdevel
 Architecture: arm64 amd64
+Replaces: libdmabufheap-dev
+Breaks: libdmabufheap-dev
 Depends:
  qcom-libdmabufheap (= ${binary:Version}),
  ${misc:Depends},
@@ -19,6 +21,8 @@ Description: Library to interface dmabufheap node - development files
 
 Package: qcom-libdmabufheap
 Architecture: any
+Replaces: libdmabufheap0
+Breaks: libdmabufheap0
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
