@@ -14,6 +14,7 @@ Architecture: arm64 amd64
 Depends:
  qcom-libdmabufheap (= ${binary:Version}),
  ${misc:Depends},
+ adduser,
 Description: Library to interface dmabufheap node - development files
  Development files for libdmabufheap
 
@@ -22,5 +23,6 @@ Architecture: any
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
+ adduser,
 Description: Library to interface dmabufheap node
  Library to access kernel dmabufheap node. Orginated from Android
