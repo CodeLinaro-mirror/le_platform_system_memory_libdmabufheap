@@ -16,6 +16,7 @@ Breaks: libdmabufheap-dev
 Depends:
  qcom-libdmabufheap (= ${binary:Version}),
  ${misc:Depends},
+ adduser,
 Description: Library to interface dmabufheap node - development files
  Development files for libdmabufheap
 
@@ -26,5 +27,6 @@ Breaks: libdmabufheap0
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
+ adduser,
 Description: Library to interface dmabufheap node
  Library to access kernel dmabufheap node. Orginated from Android

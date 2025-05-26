@@ -1,1 +1,2 @@
 usr/lib/*/lib*.so.*
+scripts/udev-rules/99-dma-heap-permissions.rules /lib/udev/rules.d/
